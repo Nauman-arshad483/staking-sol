@@ -1,24 +1,62 @@
 import React, { forwardRef, useEffect, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 
-import { stakeAmount } from './dashboard-services';
-import { Connection } from '@solana/web3.js';
-
+import { getStakeAccounts, stakeAmount } from './dashboard-services';
+import {
+  Connection,
+  PublicKey,
+  AccountInfo,
+  ParsedAccountData,
+  LAMPORTS_PER_SOL,
+} from '@solana/web3.js';
+// import { getStakeAccount } from '@soceanfi/solana-stake-sdk';
 const CalculateProfit = forwardRef<HTMLDivElement>((props, ref) => {
   const { connection } = useConnection();
   const wallet = useWallet();
   const [amountToStake, setAmountToStake] = useState<number>(0); // State to hold the stake amount
+  const [stakeAccounts, setStakeAccounts] = useState<
+    Array<{
+      pubkey: PublicKey;
+      account: AccountInfo<ParsedAccountData | Buffer>;
+    }>
+  >();
+  // const [walletPublicKey, setWalletPublicKey] = useState<string>('');
+  useEffect(() => {
+    if (wallet.publicKey) {
+      console.log('connections is...', connection);
+      console.log('wallet is....', wallet.publicKey);
+      const walletPKey = wallet.publicKey?.toBase58();
+      // setWalletPublicKey(walletPKey!);
+      if (walletPKey) {
+        getStakeAccounts(connection, walletPKey)
+          .then((data) => {
+            setStakeAccounts(data);
+          })
+          .catch((err) => console.log('error is ..', err));
+      }
+    } else {
+      console.log('wallet not loaded');
+    }
+  }, [connection, wallet.publicKey]);
 
   useEffect(() => {
-    console.log('connections is...', connection);
-    console.log('wallet is....', wallet.publicKey);
-  }, []);
-
+    console.log('stake accounts are...', stakeAccounts);
+    stakeAccounts?.map(async (account, i) => {
+      const stakeBalance = await connection.getBalance(account.pubkey);
+      console.log('stake balance is...', stakeBalance);
+      // console.log("Account ",i,":");
+      // console.log("public key is...",account.pubkey.toString());
+      // console.log("Balance is...",account.account.data);
+      const bal = (account.account.lamports / LAMPORTS_PER_SOL).toFixed(2);
+      console.log('bal is...', bal);
+      console.log('lampords are...', account.account.lamports);
+    });
+  }, [stakeAccounts]);
   // Modified the function to handleStake
   function handleStake(amount: number, connection: Connection) {
     if (wallet && wallet.publicKey) {
       console.log('ammount is...', amount);
-      stakeAmount(connection,amount); // Pass the connection and amount to stakeAmount
+      stakeAmount(connection, amount); // Pass the connection and amount to stakeAmount
     } else {
       console.error('Wallet is not connected or public key is not available.');
     }
